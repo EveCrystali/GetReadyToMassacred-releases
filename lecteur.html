@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="robots" content="noindex">
+<title>GetReadyToMassacred · lecteur</title>
+<!-- Page relais publiée sur GitHub Pages (dépôt GetReadyToMassacred-releases), source : tools/pages/lecteur.html.
+     Les pages exportées sont des fichiers locaux : un lecteur YouTube y refuse de s'afficher (erreur 153, pas d'adresse
+     d'origine). Cette page, elle, a une adresse https : elle ne contient qu'un lecteur YouTube, sans aucune donnée de
+     joueur, et se laisse piloter par la page qui l'intègre (postMessage { type: 'grtm-seek', t: secondes }). -->
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #p { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  #msg { position: absolute; inset: 0; display: grid; place-items: center; color: #c9d3e6; font: 14px system-ui, sans-serif; text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+<div id="msg">Chargement du lecteur…</div>
+<div id="p"></div>
+<script>
+  // Paramètres : v = identifiant YouTube (11 caractères), t = seconde de départ.
+  const q = new URLSearchParams(location.search);
+  const id = q.get('v') ?? '';
+  const start = Math.max(0, Math.floor(Number(q.get('t')) || 0));
+  const msg = document.getElementById('msg');
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id)) msg.textContent = 'Vidéo inconnue.';
+  else {
+    let player = null, ready = false, pending = null;
+    window.onYouTubeIframeAPIReady = () => {
+      player = new YT.Player('p', {
+        videoId: id,
+        playerVars: { start, rel: 0, modestbranding: 1, playsinline: 1 },
+        events: {
+          onReady: () => { ready = true; msg.remove(); if (pending != null) { player.seekTo(pending, true); player.playVideo(); pending = null; } },
+          onError: (e) => { msg.textContent = `Lecture impossible (erreur ${e.data}). Ouvrez la vidéo sur YouTube : https://youtu.be/${id}`; },
+        },
+      });
+    };
+    // Ordres de la page qui intègre ce lecteur : aller à un instant (secondes) et lire.
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.type !== 'grtm-seek' || !Number.isFinite(d.t)) return;
+      const t = Math.max(0, d.t);
+      if (ready) { player.seekTo(t, true); player.playVideo(); } else pending = t;
+    });
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(s);
+  }
+</script>
+</body>
+</html>
